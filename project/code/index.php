@@ -7,12 +7,8 @@ use Geekbrains\Application1\Application\Application;
 
 try{
     $app = new Application();
-
-    $result = $app->runApp();
-
-    echo $result;
+    echo $app->run();
 }
 catch(Exception $e){
     echo $e->getMessage();
 }
-
