@@ -19,7 +19,7 @@ class UserController extends AbstractController {
 
     public function actionIndex(): string {
         $users = User::getAllUsersFromStorage();
-        
+
         $render = new Render();
 
         if(!$users){
@@ -60,14 +60,67 @@ class UserController extends AbstractController {
         }
     }
 
+    public function actionDelete(): string {
+        if(User::exists($_GET['user_id'])) {
+            User::deleteFromStorage($_GET['user_id']);
+
+            header('Location: /user');
+            die();
+
+        }
+        else {
+            throw new \Exception("Пользователь не существует");
+        }
+    }
+
     public function actionEdit(): string {
         $render = new Render();
+
+
+        $action = '/user/save';
+        if(isset($_GET['user_id'])){
+            $userId = $_GET['user_id'];
+            $action = '/user/update';
+            $userData = User::getUserDataByID($userId);
+
+        }
         
         return $render->renderPageWithForm(
                 'user-form.tpl', 
                 [
-                    'title' => 'Форма создания пользователя'
+                    'title' => 'Форма создания пользователя',
+                    'user_data'=> $userData ?? [],
+                    'action' => $action
                 ]);
+    }
+
+    public function actionUpdate(): string {
+        if(User::exists($_POST['user_id'])) {
+            $user = new User();
+            $user->setUserId($_POST['user_id']);
+
+            $arrayData = [];
+
+            if(isset($_POST['name']))
+                $arrayData['user_name'] = $_POST['name'];
+
+            if(isset($_POST['lastname'])) {
+                $arrayData['user_lastname'] = $_POST['lastname'];
+            }
+
+            $user->updateUser($arrayData);
+        }
+        else {
+            throw new \Exception("Пользователь не существует");
+        }
+
+        $render = new Render();
+        return $render->renderPage(
+            'user-created.tpl',
+            [
+                'title' => 'Пользователь обновлен',
+                'message' => "Обновлен пользователь " . $user->getUserId()
+            ]);
     }
 
     public function actionAuth(): string {
@@ -89,8 +142,16 @@ class UserController extends AbstractController {
 
         if(isset($_POST['login']) && isset($_POST['password'])){
             $result = Application::$auth->proceedAuth($_POST['login'], $_POST['password']);
+            if($result &&
+                isset($_POST['user-remember']) && $_POST['user-remember'] == 'remember'){
+                $token = Application::$auth->generateToken($_SESSION['auth']['id_user']);
+
+                User::setToken($_SESSION['auth']['id_user'], $token);
+            }
         }
-        
+
+
+
         if(!$result){
             $render = new Render();
 
@@ -108,8 +169,9 @@ class UserController extends AbstractController {
         }
     }
     public function actionLogout(): void {
+        User::destroyToken();
         session_destroy();
-        unset($_SESSION['user_name']);
+        unset($_SESSION['auth']);
         header("Location: /");
         die();
     }
